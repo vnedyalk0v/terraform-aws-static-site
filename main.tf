@@ -8,35 +8,24 @@ provider "aws" {
   region = var.region
 }
 
-module "s3_bucket" {
-  source = "./modules/s3"
-
-  bucket_name            = var.bucket_name
-  force_destroy          = var.force_destroy
-  tags                   = var.tags
-  enable_versioning      = var.enable_versioning
-  enable_access_logging  = var.enable_access_logging
-  access_log_bucket_name = var.access_log_bucket_name
-  access_log_prefix      = var.access_log_prefix
-  block_public_access    = var.block_public_access
-  enable_encryption      = var.enable_encryption
-  kms_key_arn            = var.kms_key_arn
-  cors_rules             = var.cors_rules
-  lifecycle_rules        = var.lifecycle_rules
-}
-
+# Create CloudFront distribution first
 module "cloudfront" {
   source = "./modules/cloudfront"
 
-  bucket_name                 = module.s3_bucket.bucket_name
-  bucket_regional_domain_name = module.s3_bucket.bucket_regional_domain_name
-  bucket_arn                  = module.s3_bucket.bucket_arn
-  origin_access_identity_path = module.s3_bucket.origin_access_identity_path
+  bucket_name                 = var.bucket_name
+  bucket_regional_domain_name = "${var.bucket_name}.s3.${var.region}.amazonaws.com"
+  bucket_arn                  = "arn:aws:s3:::${var.bucket_name}"
+  origin_access_identity_path = "" # Not used with OAC, but kept for backward compatibility
   aliases                     = var.aliases
   acm_certificate_arn         = var.acm_certificate_arn
   price_class                 = var.price_class
   minimum_protocol_version    = var.minimum_protocol_version
   default_root_object         = var.default_root_object
+  http_version                = var.http_version
+  use_default_cache_policy    = var.use_default_cache_policy
+  min_ttl                     = var.min_ttl
+  default_ttl                 = var.default_ttl
+  max_ttl                     = var.max_ttl
   error_responses             = var.error_responses
   geo_restriction             = var.geo_restriction
   tags                        = var.tags
@@ -49,4 +38,24 @@ module "cloudfront" {
   cache_policy_id             = var.cache_policy_id
   origin_request_policy_id    = var.origin_request_policy_id
   response_headers_policy_id  = var.response_headers_policy_id
+}
+
+# Then create S3 bucket with CloudFront distribution ARN
+module "s3_bucket" {
+  source = "./modules/s3"
+
+  region                      = var.region
+  bucket_name                 = var.bucket_name
+  force_destroy               = var.force_destroy
+  tags                        = var.tags
+  enable_versioning           = var.enable_versioning
+  enable_access_logging       = var.enable_access_logging
+  access_log_bucket_name      = var.access_log_bucket_name
+  access_log_prefix           = var.access_log_prefix
+  block_public_access         = var.block_public_access
+  enable_encryption           = var.enable_encryption
+  kms_key_arn                 = var.kms_key_arn
+  cors_rules                  = var.cors_rules
+  lifecycle_rules             = var.lifecycle_rules
+  cloudfront_distribution_arn = module.cloudfront.distribution_arn
 }

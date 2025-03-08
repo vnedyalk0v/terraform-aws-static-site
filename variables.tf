@@ -212,3 +212,37 @@ variable "response_headers_policy_id" {
   type        = string
   default     = null
 }
+
+variable "http_version" {
+  description = "Maximum HTTP version to support on the distribution. Allowed values are http1.1, http2, http2and3 and http3"
+  type        = string
+  default     = "http2and3"
+  validation {
+    condition     = contains(["http1.1", "http2", "http2and3", "http3"], var.http_version)
+    error_message = "http_version must be one of http1.1, http2, http2and3, or http3."
+  }
+}
+
+variable "use_default_cache_policy" {
+  description = "Whether to use the default cache policy (CachingOptimized) or custom TTL settings"
+  type        = bool
+  default     = true
+}
+
+variable "min_ttl" {
+  description = "Minimum amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 0
+}
+
+variable "default_ttl" {
+  description = "Default amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 3600
+}
+
+variable "max_ttl" {
+  description = "Maximum amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 86400
+}
