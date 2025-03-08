@@ -1,3 +1,8 @@
+variable "region" {
+  description = "The AWS region to deploy the S3 bucket"
+  type        = string
+}
+
 variable "bucket_name" {
   description = "Name of the S3 bucket to create for static website hosting"
   type        = string
@@ -81,4 +86,10 @@ variable "lifecycle_rules" {
     noncurrent_version_transition_storage_class = string
   }))
   default = []
+}
+
+variable "cloudfront_distribution_arn" {
+  description = "ARN of the CloudFront distribution that will access this bucket"
+  type        = string
+  default     = ""
 }

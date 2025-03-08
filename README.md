@@ -7,7 +7,7 @@ This Terraform module provisions infrastructure for hosting a static website on 
 - S3 bucket configured for static website hosting
 - CloudFront distribution for content delivery
 - Origin Access Control (OAC) for secure S3 access
-- Configurable CORS settings
+- Configurable CORS settings (with sensible defaults for static websites)
 - Configurable lifecycle rules
 - Flexible caching options (default policy or custom settings)
 - Configurable error responses
@@ -15,8 +15,27 @@ This Terraform module provisions infrastructure for hosting a static website on 
 - Optional access logging
 - Optional server-side encryption
 - Optional custom domain with SSL/TLS certificate
+- Sensible default tags (can be overridden if needed)
 
 ## Usage
+
+### Minimal Configuration
+
+You can deploy the entire infrastructure with just a bucket name:
+
+```hcl
+module "static_website" {
+  source = "github.com/vnedyalk0v/terraform-aws-static-site"
+
+  bucket_name = "my-static-website-bucket"
+}
+```
+
+That's it! The module will use sensible defaults for all other settings, including standard tags (`Environment = "dev"`, `Project = "static-website"`, `ManagedBy = "Terraform"`).
+
+### Full Configuration
+
+For more control, you can customize any aspect of the infrastructure:
 
 ```hcl
 module "static_website" {
@@ -38,12 +57,20 @@ module "static_website" {
   minimum_protocol_version = "TLSv1.2_2021"
   http_version             = "http2and3"
 
-  # By default, the module uses AWS's managed CachingOptimized policy
-  # If you want to use custom TTL settings instead, set:
+  # Cache settings - choose one approach:
+
+  # Option 1: Use default cache policy (CachingOptimized)
+  use_default_cache_policy = true
+
+  # Option 2: Use custom TTL settings
   # use_default_cache_policy = false
   # min_ttl     = 0
   # default_ttl = 3600
   # max_ttl     = 86400
+
+  # Option 3: Use your own cache policy
+  # use_default_cache_policy = false
+  # cache_policy_id = aws_cloudfront_cache_policy.custom_policy.id
 
   # Custom error responses
   error_responses = [
@@ -55,18 +82,19 @@ module "static_website" {
     }
   ]
 
-  # Tags
+  # Custom tags (will override the defaults)
   tags = {
-    Environment = "dev"
-    Project     = "static-website"
-    Terraform   = "true"
+    Environment = "production"
+    Project     = "my-website"
+    ManagedBy   = "Terraform"
+    Owner       = "DevOps Team"
   }
 }
 ```
 
 ## Examples
 
-- [Simple Example](./examples/simple) - Basic static website hosting
+- [Simple Example](./examples/simple) - Basic static website hosting with both minimal and full configurations
 - [Custom Domain Example](./examples/custom-domain) - Static website with custom domain and SSL/TLS certificate
 
 ## Requirements
@@ -156,6 +184,7 @@ This module provides flexible caching options:
 1. **Default Cache Policy (Default)**: By default, the module uses AWS's managed CachingOptimized policy, which is optimized for static website hosting. You don't need to specify anything for this option.
 
 2. **Custom Cache Policy**: If you want to use your own cache policy, create it as a separate resource and pass its ID:
+
    ```hcl
    resource "aws_cloudfront_cache_policy" "custom_policy" {
      name        = "CustomCachePolicy"

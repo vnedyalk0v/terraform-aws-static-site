@@ -1,7 +1,7 @@
 variable "region" {
-  description = "The AWS region to deploy resources"
+  description = "The AWS region to deploy the S3 bucket"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-1" # Default to us-east-1 as it's required for CloudFront certificates
 }
 
 variable "bucket_name" {
@@ -12,13 +12,17 @@ variable "bucket_name" {
 variable "force_destroy" {
   description = "Whether to force destroy the bucket even if it contains objects"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "tags" {
-  description = "A map of tags to add to all resources"
+  description = "A map of tags to add to all resources (defaults will be used if not provided)"
   type        = map(string)
-  default     = {}
+  default = {
+    Environment = "dev"
+    Project     = "static-website"
+    ManagedBy   = "Terraform"
+  }
 }
 
 variable "enable_versioning" {
@@ -72,7 +76,15 @@ variable "cors_rules" {
     expose_headers  = list(string)
     max_age_seconds = number
   }))
-  default = []
+  default = [
+    {
+      allowed_headers = ["*"]
+      allowed_methods = ["GET", "HEAD"]
+      allowed_origins = ["*"]
+      expose_headers  = []
+      max_age_seconds = 3000
+    }
+  ]
 }
 
 variable "lifecycle_rules" {
@@ -192,13 +204,49 @@ variable "cloudfront_log_prefix" {
 variable "enable_ipv6" {
   description = "Enable IPv6 support for CloudFront"
   type        = bool
+  default     = false
+}
+
+variable "use_default_cache_policy" {
+  description = "Whether to use the default cache policy (CachingOptimized) or custom TTL settings"
+  type        = bool
   default     = true
 }
 
 variable "cache_policy_id" {
-  description = "ID of the cache policy to use for the default cache behavior"
+  description = "ID of the cache policy to use for the default cache behavior (only used when use_default_cache_policy is false)"
   type        = string
-  default     = null # Will use managed-cacheoptimized policy if null
+  default     = null
+}
+
+variable "min_ttl" {
+  description = "Minimum amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 0
+  validation {
+    condition     = var.min_ttl >= 0
+    error_message = "min_ttl must be greater than or equal to 0."
+  }
+}
+
+variable "default_ttl" {
+  description = "Default amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 3600
+  validation {
+    condition     = var.default_ttl >= 0
+    error_message = "default_ttl must be greater than or equal to 0."
+  }
+}
+
+variable "max_ttl" {
+  description = "Maximum amount of time that you want objects to stay in CloudFront caches (only used when use_default_cache_policy is false)"
+  type        = number
+  default     = 86400
+  validation {
+    condition     = var.max_ttl >= 0
+    error_message = "max_ttl must be greater than or equal to 0."
+  }
 }
 
 variable "origin_request_policy_id" {
@@ -211,4 +259,14 @@ variable "response_headers_policy_id" {
   description = "ID of the response headers policy to use for the default cache behavior"
   type        = string
   default     = null
+}
+
+variable "http_version" {
+  description = "Maximum HTTP version to support on the distribution. Allowed values are http1.1, http2, http2and3 and http3"
+  type        = string
+  default     = "http2and3"
+  validation {
+    condition     = contains(["http1.1", "http2", "http2and3", "http3"], var.http_version)
+    error_message = "http_version must be one of http1.1, http2, http2and3, or http3."
+  }
 }

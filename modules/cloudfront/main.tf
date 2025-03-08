@@ -17,6 +17,15 @@ locals {
   default_response_headers_policy_id = "67f7725c-6f97-4210-82d7-5512b31e9d03" # SecurityHeadersPolicy
 }
 
+# Create CloudFront Origin Access Control
+resource "aws_cloudfront_origin_access_control" "oac" {
+  name                              = "${var.bucket_name}-oac"
+  description                       = "Origin Access Control for ${var.bucket_name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # Create CloudFront distribution
 resource "aws_cloudfront_distribution" "website" {
   enabled             = true
@@ -24,6 +33,7 @@ resource "aws_cloudfront_distribution" "website" {
   comment             = "CloudFront distribution for ${var.bucket_name}"
   default_root_object = var.default_root_object
   price_class         = var.price_class
+  http_version        = var.http_version
   tags                = var.tags
   web_acl_id          = var.enable_waf ? var.web_acl_id : null
 
@@ -32,12 +42,9 @@ resource "aws_cloudfront_distribution" "website" {
 
   # S3 origin configuration
   origin {
-    domain_name = var.bucket_regional_domain_name
-    origin_id   = local.s3_origin_id
-
-    s3_origin_config {
-      origin_access_identity = var.origin_access_identity_path
-    }
+    domain_name              = var.bucket_regional_domain_name
+    origin_id                = local.s3_origin_id
+    origin_access_control_id = aws_cloudfront_origin_access_control.oac.id
   }
 
   # Default cache behavior
@@ -47,14 +54,27 @@ resource "aws_cloudfront_distribution" "website" {
     target_origin_id = local.s3_origin_id
     compress         = true
 
-    cache_policy_id            = var.cache_policy_id != null ? var.cache_policy_id : local.default_cache_policy_id
-    origin_request_policy_id   = var.origin_request_policy_id != null ? var.origin_request_policy_id : local.default_origin_request_policy_id
-    response_headers_policy_id = var.response_headers_policy_id != null ? var.response_headers_policy_id : local.default_response_headers_policy_id
+    # Use either the cache policy or custom TTL settings based on user preference
+    dynamic "forwarded_values" {
+      for_each = var.use_default_cache_policy ? [] : [1]
+      content {
+        query_string = false
+        cookies {
+          forward = "none"
+        }
+      }
+    }
+
+    cache_policy_id            = var.use_default_cache_policy ? (var.cache_policy_id != null ? var.cache_policy_id : local.default_cache_policy_id) : null
+    origin_request_policy_id   = var.use_default_cache_policy ? (var.origin_request_policy_id != null ? var.origin_request_policy_id : local.default_origin_request_policy_id) : null
+    response_headers_policy_id = var.use_default_cache_policy ? (var.response_headers_policy_id != null ? var.response_headers_policy_id : local.default_response_headers_policy_id) : null
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
+
+    # Only set TTL values when not using default cache policy
+    min_ttl     = var.use_default_cache_policy ? null : var.min_ttl
+    default_ttl = var.use_default_cache_policy ? null : var.default_ttl
+    max_ttl     = var.use_default_cache_policy ? null : var.max_ttl
   }
 
   # Custom error responses
