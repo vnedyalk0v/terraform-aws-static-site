@@ -128,7 +128,7 @@ variable "logging_prefix" {
 variable "enable_ipv6" {
   description = "Enable IPv6 support for CloudFront"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "cache_policy_id" {

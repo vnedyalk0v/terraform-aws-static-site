@@ -4,6 +4,7 @@
  * This module provisions infrastructure for hosting a static website on AWS using S3 and CloudFront.
  */
 
+# Set AWS provider with the specified region
 provider "aws" {
   region = var.region
 }

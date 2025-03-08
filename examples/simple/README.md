@@ -4,6 +4,31 @@ This example demonstrates how to use the static website module to create a basic
 
 ## Usage
 
+### Minimal Configuration
+
+You can deploy the entire infrastructure with just a bucket name:
+
+```hcl
+module "static_website" {
+  source = "github.com/your-username/terraform-aws-static-site"
+
+  bucket_name = "my-static-website-bucket"
+}
+```
+
+That's it! The module will use sensible defaults for all other settings, including:
+
+- CORS configuration optimized for static websites
+- S3 bucket with versioning enabled
+- CloudFront distribution with OAC for secure S3 access
+- Server-side encryption for the S3 bucket
+- Block public access for the S3 bucket
+- Default tags (Environment = "dev", Project = "static-website", ManagedBy = "Terraform")
+
+### Full Configuration
+
+For more control, you can customize any aspect of the infrastructure:
+
 ```hcl
 module "static_website" {
   source = "github.com/your-username/terraform-aws-static-site"
@@ -21,22 +46,41 @@ module "static_website" {
   # CloudFront settings
   price_class              = "PriceClass_100"
   default_root_object      = "index.html"
-  enable_ipv6              = false
+  enable_ipv6              = true
   minimum_protocol_version = "TLSv1.2_2021"
   http_version             = "http2and3"
 
-  # By default, the module uses AWS's managed CachingOptimized policy
-  # If you want to use custom TTL settings instead, set:
+  # Cache settings - choose one approach:
+
+  # Option 1: Use default cache policy (CachingOptimized)
+  use_default_cache_policy = true
+
+  # Option 2: Use custom TTL settings
   # use_default_cache_policy = false
   # min_ttl     = 0
   # default_ttl = 300
   # max_ttl     = 600
 
+  # Option 3: Use your own cache policy
+  # use_default_cache_policy = false
+  # cache_policy_id = aws_cloudfront_cache_policy.custom_policy.id
+
+  # Custom error responses for SPA (Single Page Application)
+  error_responses = [
+    {
+      error_code            = 404
+      response_code         = 200
+      response_page_path    = "/index.html"
+      error_caching_min_ttl = 10
+    }
+  ]
+
   # Tags
   tags = {
-    Environment = "dev"
-    Project     = "static-website"
-    Terraform   = "true"
+    Environment = "production"
+    Project     = "my-website"
+    ManagedBy   = "Terraform"
+    Owner       = "DevOps Team"
   }
 }
 ```
@@ -99,6 +143,7 @@ The module provides flexible caching options with sensible defaults:
 - Security best practices (encryption, block public access)
 - CloudFront configuration with HTTP/3 support
 - SPA (Single Page Application) support with custom error responses
+- Flexible caching options
 
 ## Notes
 
